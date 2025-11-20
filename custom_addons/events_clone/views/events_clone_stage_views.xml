@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<odoo>
+    <data>
+        <!-- Form View -->
+        <record id="view_events_clone_stage_form" model="ir.ui.view">
+            <field name="name">events.clone.stage.form</field>
+            <field name="model">events.clone.stage</field>
+            <field name="arch" type="xml">
+                <form string="Event Stage">
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                            <field name="sequence"/>
+                            <field name="fold"/>
+                            <field name="pipe_end"/>
+                        </group>
+                        <group>
+                            <field name="description"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Tree View -->
+        <record id="view_events_clone_stage_tree" model="ir.ui.view">
+            <field name="name">events.clone.stage.tree</field>
+            <field name="model">events.clone.stage</field>
+            <field name="arch" type="xml">
+                <list string="Event Stages">
+                    <field name="sequence" widget="handle"/>
+                    <field name="name"/>
+                    <field name="fold"/>
+                    <field name="pipe_end"/>
+                </list>
+            </field>
+        </record>
+    </data>
+</odoo>
+

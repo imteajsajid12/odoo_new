@@ -1,0 +1,80 @@
+<?xml version="1.0"?>
+<odoo>
+    <data>
+        <!-- Email Wizard Form View -->
+        <record id="view_events_clone_email_wizard_form" model="ir.ui.view">
+            <field name="name">events.clone.email.wizard.form</field>
+            <field name="model">events.clone.email.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Send Email to Contacts">
+                    <sheet>
+                        <div class="oe_title">
+                            <h1>
+                                <field name="event_id" readonly="1" class="oe_inline"/>
+                            </h1>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="contact_tag_ids" widget="many2many_tags" 
+                                       placeholder="Select contact tags to filter recipients..."
+                                       options="{'color_field': 'color', 'no_create': True}"/>
+                                <field name="recipient_count" readonly="1"/>
+                            </group>
+                        </group>
+                        
+                        <group string="Email Content">
+                            <field name="subject" placeholder="e.g. Invitation to Annual Conference 2024"/>
+                        </group>
+                        
+                        <group>
+                            <field name="body" widget="html" 
+                                   placeholder="Write your email message here..."
+                                   options="{'style-inline': true}"/>
+                        </group>
+                        
+                        <notebook>
+                            <page string="Recipients" name="recipients">
+                                <group>
+                                    <field name="recipient_ids" nolabel="1" readonly="1">
+                                        <list string="Recipients">
+                                            <field name="name"/>
+                                            <field name="email"/>
+                                            <field name="phone" optional="hide"/>
+                                            <field name="category_id" widget="many2many_tags" optional="show"/>
+                                            <field name="active" invisible="1"/>
+                                        </list>
+                                    </field>
+                                </group>
+                                <div class="alert alert-info" role="alert" invisible="recipient_count &gt; 0">
+                                    <p><strong>No recipients found.</strong></p>
+                                    <p>Please select contact tags that have associated active contacts with email addresses.</p>
+                                </div>
+                                <div class="alert alert-success" role="alert" invisible="recipient_count == 0">
+                                    <p><strong><field name="recipient_count" readonly="1"/> active contact(s)</strong> will receive this email.</p>
+                                    <p>Only active contacts with valid email addresses are included.</p>
+                                </div>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <footer>
+                        <button string="Send Email" name="action_send_email" type="object" 
+                                class="btn-primary" data-hotkey="q"
+                                invisible="recipient_count == 0"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel" data-hotkey="z"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+        
+        <!-- Action to open the wizard -->
+        <record id="action_events_clone_email_wizard" model="ir.actions.act_window">
+            <field name="name">Send Email</field>
+            <field name="res_model">events.clone.email.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+            <field name="binding_model_id" ref="model_events_clone_event"/>
+            <field name="binding_view_types">form</field>
+        </record>
+    </data>
+</odoo>
+

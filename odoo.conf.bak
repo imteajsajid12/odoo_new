@@ -1,0 +1,189 @@
+[options]
+# ==============================================================================
+# ODOO CONFIGURATION FILE
+# ==============================================================================
+# This file contains all the configuration options for running Odoo
+# Generated for: Odoo 19.0 ERP System
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# ADMIN PASSWORD
+# ------------------------------------------------------------------------------
+# This is the master password that allows database operations
+# IMPORTANT: Change this in production!
+admin_passwd = admin
+
+# ------------------------------------------------------------------------------
+# DATABASE CONFIGURATION
+# ------------------------------------------------------------------------------
+# PostgreSQL database connection settings
+db_host = localhost
+db_port = 5432
+db_user = luminous_imteaj
+db_password =
+db_name = odoo_v1
+
+# Database filtering (False = show all databases)
+# Set to a regex pattern to filter database names shown in the database selector
+# Example: db_filter = ^%d$ (only show database matching the subdomain)
+dbfilter = 
+
+# List databases on the login screen (True/False)
+list_db = True
+
+# Maximum number of database connections per worker
+db_maxconn = 64
+
+# Database template to use when creating new databases
+db_template = template0
+
+# ------------------------------------------------------------------------------
+# SERVER CONFIGURATION
+# ------------------------------------------------------------------------------
+# HTTP interface to listen on (0.0.0.0 = all interfaces, 127.0.0.1 = localhost only)
+http_interface = 0.0.0.0
+
+# HTTP port to listen on
+http_port = 8069
+
+# Enable HTTPS (requires certificate configuration)
+# proxy_mode = True
+
+# Long polling port (for real-time features like chat)
+# longpolling_port = 8072
+
+# ------------------------------------------------------------------------------
+# ADDONS PATH
+# ------------------------------------------------------------------------------
+# Comma-separated list of directories where Odoo will look for addons
+addons_path = /Users/luminous_imteaj/Documents/officeWork/Odoo/odoo/addons
+
+# ------------------------------------------------------------------------------
+# DATA DIRECTORY
+# ------------------------------------------------------------------------------
+# Directory where Odoo stores session data, filestore, and other runtime data
+data_dir = /Users/luminous_imteaj/Library/Application Support/Odoo/addons/19.0
+
+# ------------------------------------------------------------------------------
+# LOGGING CONFIGURATION
+# ------------------------------------------------------------------------------
+# Log level: debug, debug_rpc, debug_rpc_answer, debug_sql, info, warn, error, critical
+log_level = info
+
+# Log handler format: MODULE:LEVEL
+# Examples:
+#   :INFO                    - All modules at INFO level
+#   werkzeug:WARNING         - Werkzeug at WARNING level
+#   odoo.addons:DEBUG        - All addons at DEBUG level
+log_handler = :INFO,werkzeug:WARNING
+
+# Log to file (leave empty to log to stdout)
+logfile = 
+
+# Enable log rotation
+# logrotate = True
+
+# Maximum log file size before rotation (in bytes)
+# log_db_level = warning
+
+# ------------------------------------------------------------------------------
+# PERFORMANCE & WORKERS
+# ------------------------------------------------------------------------------
+# Number of worker processes (0 = run in single process mode)
+# Recommended: (CPU cores * 2) + 1
+# For development: 0 (easier debugging)
+workers = 0
+
+# Maximum number of requests a worker will process before restarting
+# max_cron_threads = 2
+
+# Limits
+limit_memory_soft = 2147483648
+limit_memory_hard = 2684354560
+limit_time_cpu = 60
+limit_time_real = 120
+limit_request = 8192
+
+# ------------------------------------------------------------------------------
+# SECURITY
+# ------------------------------------------------------------------------------
+# Disable loading demo data
+without_demo = False
+
+# Server-wide modules (loaded before database selection)
+server_wide_modules = base,web
+
+# ------------------------------------------------------------------------------
+# EMAIL CONFIGURATION
+# ------------------------------------------------------------------------------
+# SMTP server for sending emails
+# email_from = odoo@example.com
+# smtp_server = localhost
+# smtp_port = 25
+# smtp_ssl = False
+# smtp_user = False
+# smtp_password = False
+
+# ------------------------------------------------------------------------------
+# DEVELOPMENT OPTIONS
+# ------------------------------------------------------------------------------
+# Enable developer mode features
+# dev_mode = 
+
+# Auto-reload when Python files change (development only)
+# dev_mode = reload
+
+# Enable test mode
+# test_enable = False
+
+# ------------------------------------------------------------------------------
+# TRANSLATION
+# ------------------------------------------------------------------------------
+# Load translations for these languages
+# load_language = en_US
+
+# Translation file to import
+# translate_in = 
+# translate_out = 
+
+# ------------------------------------------------------------------------------
+# ADVANCED OPTIONS
+# ------------------------------------------------------------------------------
+# Modules to install/update/uninstall on startup
+# init = 
+# update = 
+# uninstall = 
+
+# Stop after initialization
+# stop_after_init = False
+
+# PID file location
+# pidfile = 
+
+# Timezone (leave empty to use system timezone)
+# timezone = UTC
+
+# Enable/disable specific features
+# default_productivity_apps = True
+
+# CSV import/export settings
+# csv_internal_sep = ,
+# import_partial = 
+
+# Gevent mode (for better concurrency)
+# gevent_port = 8072
+
+# Screencasts
+# screencasts = 
+
+# ------------------------------------------------------------------------------
+# NOTES
+# ------------------------------------------------------------------------------
+# - Lines starting with ; or # are comments
+# - Boolean values: True/False
+# - For production, set workers > 0 and configure proper limits
+# - Always change admin_passwd in production
+# - Use proxy_mode = True if behind a reverse proxy (nginx, apache)
+# - For HTTPS, configure your reverse proxy, not Odoo directly
+# ==============================================================================
+

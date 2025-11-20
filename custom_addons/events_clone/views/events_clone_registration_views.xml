@@ -1,0 +1,99 @@
+<?xml version="1.0"?>
+<odoo>
+    <data>
+        <!-- Form View -->
+        <record id="view_events_clone_registration_form" model="ir.ui.view">
+            <field name="name">events.clone.registration.form</field>
+            <field name="model">events.clone.registration</field>
+            <field name="arch" type="xml">
+                <form string="Event Registration">
+                    <header>
+                        <button name="action_confirm" string="Confirm" type="object" 
+                                invisible="state != 'draft'" class="oe_highlight"/>
+                        <button name="action_set_done" string="Attended" type="object" 
+                                invisible="state != 'open'" class="oe_highlight"/>
+                        <button name="action_cancel" string="Cancel" type="object" 
+                                invisible="state in ['cancel', 'done']"/>
+                        <button name="action_set_draft" string="Set to Draft" type="object" 
+                                invisible="state != 'cancel'"/>
+                        <field name="state" widget="statusbar"/>
+                    </header>
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="event_id"/>
+                                <field name="event_ticket_id"/>
+                                <field name="partner_id"/>
+                            </group>
+                            <group>
+                                <field name="name"/>
+                                <field name="email"/>
+                                <field name="phone"/>
+                                <field name="company_name"/>
+                            </group>
+                        </group>
+                        <group>
+                            <group>
+                                <field name="barcode"/>
+                                <field name="create_date"/>
+                                <field name="date_closed"/>
+                            </group>
+                            <group>
+                                <field name="utm_campaign_id"/>
+                                <field name="utm_source_id"/>
+                                <field name="utm_medium_id"/>
+                            </group>
+                        </group>
+                    </sheet>
+                    <div class="oe_chatter">
+                        <field name="message_follower_ids"/>
+                        <field name="activity_ids"/>
+                        <field name="message_ids"/>
+                    </div>
+                </form>
+            </field>
+        </record>
+
+        <!-- Tree View -->
+        <record id="view_events_clone_registration_tree" model="ir.ui.view">
+            <field name="name">events.clone.registration.tree</field>
+            <field name="model">events.clone.registration</field>
+            <field name="arch" type="xml">
+                <list string="Event Registrations">
+                    <field name="event_id"/>
+                    <field name="name"/>
+                    <field name="email"/>
+                    <field name="phone"/>
+                    <field name="event_ticket_id"/>
+                    <field name="partner_id"/>
+                    <field name="state"/>
+                    <field name="create_date"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Search View -->
+        <record id="view_events_clone_registration_search" model="ir.ui.view">
+            <field name="name">events.clone.registration.search</field>
+            <field name="model">events.clone.registration</field>
+            <field name="arch" type="xml">
+                <search string="Event Registration">
+                    <field name="name"/>
+                    <field name="email"/>
+                    <field name="event_id"/>
+                    <field name="partner_id"/>
+                    <filter string="Unconfirmed" name="draft" domain="[('state', '=', 'draft')]"/>
+                    <filter string="Registered" name="confirmed" domain="[('state', '=', 'open')]"/>
+                    <filter string="Attended" name="attended" domain="[('state', '=', 'done')]"/>
+                    <separator/>
+                    <filter string="Archived" name="inactive" domain="[('active', '=', False)]"/>
+                    <group>
+                        <filter string="Event" name="group_event" domain="[]" context="{'group_by': 'event_id'}"/>
+                        <filter string="Status" name="group_status" domain="[]" context="{'group_by': 'state'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+    </data>
+</odoo>
+

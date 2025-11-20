@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<odoo>
+    <data>
+        <!-- Form View -->
+        <record id="view_events_clone_ticket_form" model="ir.ui.view">
+            <field name="name">events.clone.ticket.form</field>
+            <field name="model">events.clone.ticket</field>
+            <field name="arch" type="xml">
+                <form string="Event Ticket">
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="name"/>
+                                <field name="event_id"/>
+                                <field name="price"/>
+                                <field name="sequence"/>
+                            </group>
+                            <group>
+                                <field name="seats_limited"/>
+                                <field name="seats_max" invisible="not seats_limited"/>
+                                <field name="seats_available"/>
+                                <field name="start_sale_datetime"/>
+                                <field name="end_sale_datetime"/>
+                            </group>
+                        </group>
+                        <group>
+                            <field name="description"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Tree View -->
+        <record id="view_events_clone_ticket_tree" model="ir.ui.view">
+            <field name="name">events.clone.ticket.tree</field>
+            <field name="model">events.clone.ticket</field>
+            <field name="arch" type="xml">
+                <list string="Event Tickets">
+                    <field name="sequence" widget="handle"/>
+                    <field name="name"/>
+                    <field name="event_id"/>
+                    <field name="price"/>
+                    <field name="seats_max"/>
+                    <field name="seats_available"/>
+                </list>
+            </field>
+        </record>
+    </data>
+</odoo>
+

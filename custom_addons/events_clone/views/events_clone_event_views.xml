@@ -1,0 +1,190 @@
+<?xml version="1.0"?>
+<odoo>
+    <data>
+        <!-- Form View -->
+        <record id="view_events_clone_event_form" model="ir.ui.view">
+            <field name="name">events.clone.event.form</field>
+            <field name="model">events.clone.event</field>
+            <field name="arch" type="xml">
+                <form string="Events Clone">
+                    <header>
+                        <field name="stage_id" widget="statusbar" options="{'clickable': '1'}"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_button_box" name="button_box">
+                            <button name="action_view_registrations"
+                                    type="object"
+                                    class="oe_stat_button"
+                                    icon="fa-users">
+                                <field name="registration_count" widget="statinfo" string="Registrations"/>
+                            </button>
+                            <button name="action_send_email"
+                                    type="object"
+                                    class="oe_stat_button"
+                                    icon="fa-envelope"
+                                    string="Send Email"
+                                    help="Send email to contacts based on selected tags"/>
+                        </div>
+                        <field name="active" invisible="1"/>
+                        <widget name="web_ribbon" text="Archived" bg_color="text-bg-danger" invisible="active"/>
+                        <field name="kanban_state" widget="state_selection" class="ms-auto float-end"/>
+                        <div class="oe_title">
+                            <label for="name" string="Event Name"/>
+                            <h1><field name="name" placeholder="e.g. Annual Conference 2024"/></h1>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="date_begin" string="Start Date"/>
+                                <field name="date_end" string="End Date"/>
+                                <field name="date_tz"/>
+                                <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
+                            </group>
+                            <group>
+                                <field name="organizer_id"/>
+                                <field name="user_id" widget="many2one_avatar_user"/>
+                                <field name="company_id" groups="base.group_multi_company"/>
+                                <field name="address_id" context="{'show_address': 1}"/>
+                                <label for="seats_limited"/>
+                                <div>
+                                    <field name="seats_limited"/>
+                                    <span invisible="not seats_limited">
+                                        to <field name="seats_max" class="oe_inline"/> Attendees
+                                    </span>
+                                </div>
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="Tickets" name="tickets">
+                                <field name="event_ticket_ids" context="{'default_event_id': id}">
+                                    <list editable="bottom">
+                                        <field name="sequence" widget="handle"/>
+                                        <field name="name"/>
+                                        <field name="price"/>
+                                        <field name="seats_max"/>
+                                        <field name="seats_available"/>
+                                        <field name="start_sale_datetime"/>
+                                        <field name="end_sale_datetime"/>
+                                    </list>
+                                </field>
+                            </page>
+                            <page string="Email Communication" name="email_communication">
+                                <group>
+                                    <group string="Contact Selection">
+                                        <field name="contact_tag_ids" widget="many2many_tags"
+                                               placeholder="Select contact tags for email recipients..."
+                                               options="{'color_field': 'color', 'no_create': True}"
+                                               help="Select contact tags to filter recipients for email communication. Only active contacts with these tags will receive emails."/>
+                                    </group>
+                                </group>
+                                <div class="alert alert-info mt-3" role="alert">
+                                    <p><strong>How to send emails:</strong></p>
+                                    <ol>
+                                        <li>Select one or more contact tags above</li>
+                                        <li>Click the "Send Email" button in the top right</li>
+                                        <li>Compose your email message</li>
+                                        <li>Review the recipient list (only active contacts with email addresses)</li>
+                                        <li>Click "Send Email" to send</li>
+                                    </ol>
+                                </div>
+                            </page>
+                            <page string="Description" name="description">
+                                <field name="description" widget="html"/>
+                            </page>
+                            <page string="Notes" name="notes">
+                                <field name="note" widget="html"/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <div class="oe_chatter">
+                        <field name="message_follower_ids"/>
+                        <field name="activity_ids"/>
+                        <field name="message_ids"/>
+                    </div>
+                </form>
+            </field>
+        </record>
+
+        <!-- Tree View -->
+        <record id="view_events_clone_event_tree" model="ir.ui.view">
+            <field name="name">events.clone.event.tree</field>
+            <field name="model">events.clone.event</field>
+            <field name="arch" type="xml">
+                <list string="Events Clone">
+                    <field name="name"/>
+                    <field name="date_begin"/>
+                    <field name="date_end"/>
+                    <field name="organizer_id"/>
+                    <field name="user_id" widget="many2one_avatar_user"/>
+                    <field name="address_id"/>
+                    <field name="seats_used"/>
+                    <field name="seats_max"/>
+                    <field name="stage_id"/>
+                    <field name="company_id" groups="base.group_multi_company"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Kanban View -->
+        <record id="view_events_clone_event_kanban" model="ir.ui.view">
+            <field name="name">events.clone.event.kanban</field>
+            <field name="model">events.clone.event</field>
+            <field name="arch" type="xml">
+                <kanban default_group_by="stage_id" class="o_kanban_small_column">
+                    <field name="name"/>
+                    <field name="date_begin"/>
+                    <field name="date_end"/>
+                    <field name="stage_id"/>
+                    <field name="kanban_state"/>
+                    <templates>
+                        <t t-name="card">
+                            <div class="oe_kanban_content">
+                                <div class="o_kanban_record_top">
+                                    <div class="o_kanban_record_headings">
+                                        <strong class="o_kanban_record_title"><field name="name"/></strong>
+                                    </div>
+                                    <field name="kanban_state" widget="state_selection"/>
+                                </div>
+                                <div class="o_kanban_record_body">
+                                    <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
+                                    <div><i class="fa fa-calendar"/> <field name="date_begin"/></div>
+                                    <div><i class="fa fa-map-marker"/> <field name="address_id"/></div>
+                                </div>
+                                <div class="o_kanban_record_bottom">
+                                    <div class="oe_kanban_bottom_left">
+                                        <field name="user_id" widget="many2one_avatar_user"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+                    </templates>
+                </kanban>
+            </field>
+        </record>
+
+        <!-- Search View -->
+        <record id="view_events_clone_event_search" model="ir.ui.view">
+            <field name="name">events.clone.event.search</field>
+            <field name="model">events.clone.event</field>
+            <field name="arch" type="xml">
+                <search string="Events">
+                    <field name="name"/>
+                    <field name="organizer_id"/>
+                    <field name="user_id"/>
+                    <field name="tag_ids"/>
+                    <field name="stage_id"/>
+                    <filter string="My Events" name="my_events" domain="[('user_id', '=', uid)]"/>
+                    <separator/>
+                    <filter string="Upcoming" name="upcoming" domain="[('date_begin', '&gt;=', context_today().strftime('%Y-%m-%d'))]"/>
+                    <separator/>
+                    <filter string="Archived" name="inactive" domain="[('active', '=', False)]"/>
+                    <group>
+                        <filter string="Stage" name="group_stage" domain="[]" context="{'group_by': 'stage_id'}"/>
+                        <filter string="Responsible" name="group_responsible" domain="[]" context="{'group_by': 'user_id'}"/>
+                        <filter string="Start Date" name="group_start_date" domain="[]" context="{'group_by': 'date_begin'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+    </data>
+</odoo>
+

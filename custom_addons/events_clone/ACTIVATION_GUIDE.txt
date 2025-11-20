@@ -1,0 +1,183 @@
+================================================================================
+                    EVENTS CLONE MODULE - ACTIVATION GUIDE
+================================================================================
+
+MODULE LOCATION: /Users/luminous_imteaj/Documents/officeWork/Odoo/odoo/custom_addons/events_clone
+
+================================================================================
+STEP-BY-STEP ACTIVATION INSTRUCTIONS
+================================================================================
+
+STEP 1: UPDATE ODOO CONFIGURATION
+----------------------------------
+You need to tell Odoo where to find the custom_addons directory.
+
+Option A - Edit Configuration File:
+  1. Find your odoo.conf file (usually in the Odoo root directory)
+  2. Open it with a text editor
+  3. Find the line starting with "addons_path ="
+  4. Add the custom_addons path to it:
+     
+     addons_path = /Users/luminous_imteaj/Documents/officeWork/Odoo/odoo/addons,/Users/luminous_imteaj/Documents/officeWork/Odoo/odoo/custom_addons
+
+Option B - Use Command Line Parameter:
+  When starting Odoo, add the --addons-path parameter:
+  
+  ./odoo-bin --addons-path=addons,custom_addons
+
+
+STEP 2: RESTART ODOO SERVER
+----------------------------
+Stop your current Odoo server (Ctrl+C if running in terminal)
+Then restart it:
+
+  cd /Users/luminous_imteaj/Documents/officeWork/Odoo/odoo
+  ./odoo-bin -c odoo.conf
+
+Or if you specified the path in command line:
+
+  ./odoo-bin --addons-path=addons,custom_addons
+
+
+STEP 3: ACTIVATE DEVELOPER MODE
+--------------------------------
+1. Open browser and go to: http://localhost:8069
+2. Login as Administrator
+3. Go to Settings (gear icon)
+4. Scroll to bottom and click "Activate the developer mode"
+
+OR use this direct URL: http://localhost:8069/web?debug=1
+
+
+STEP 4: UPDATE APPS LIST
+-------------------------
+1. Click on "Apps" in the main menu
+2. Click the three dots menu (⋮) in the top-right corner
+3. Select "Update Apps List"
+4. Click "Update" in the confirmation dialog
+5. Wait for the process to complete
+
+
+STEP 5: INSTALL EVENTS CLONE MODULE
+------------------------------------
+1. In the Apps menu, remove the "Apps" filter
+   (Click the X on the "Apps" filter chip)
+2. Search for "Events Clone" in the search bar
+3. You should see the "Events Clone" module card
+4. Click the "Install" button
+5. Wait for installation to complete
+
+
+STEP 6: VERIFY INSTALLATION
+----------------------------
+After installation:
+1. You should see "Events Clone" in the main menu bar
+2. Click: Events Clone → Events → Events
+3. Try creating a test event
+
+
+================================================================================
+ACCESSING THE MODULE
+================================================================================
+
+Main Menu: Events Clone → Events → Events
+Direct URL: http://localhost:8069/odoo/events-clone
+Apps Page: http://localhost:8069/odoo/apps
+
+
+================================================================================
+MODULE FEATURES
+================================================================================
+
+✓ Event Management (Create, Edit, Track events)
+✓ Registration System (Manage attendee registrations)
+✓ Ticket Management (Multiple ticket types with pricing)
+✓ Stage Tracking (Kanban view with customizable stages)
+✓ Tag System (Categorize events with tags)
+✓ Email Integration (Mail tracking and activities)
+✓ Barcode Support (For registration check-in)
+
+
+================================================================================
+PRE-CONFIGURED DATA
+================================================================================
+
+Event Stages:
+  • New
+  • Confirmed
+  • In Progress
+  • Done
+  • Cancelled
+
+Tag Categories:
+  • Event Type
+  • Topic
+
+Event Tags:
+  • Conference, Seminar, Workshop, Training
+  • Technology, Business, Marketing
+
+
+================================================================================
+USER PERMISSIONS
+================================================================================
+
+Two security groups are created:
+  • Events Clone User - Can create and manage events
+  • Events Clone Administrator - Full access including configuration
+
+To assign permissions:
+  Settings → Users & Companies → Users → Select User → Access Rights tab
+
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Problem: Module not appearing in Apps list
+Solution: 
+  - Verify addons_path includes custom_addons
+  - Restart Odoo server
+  - Update Apps List
+  - Check Odoo logs for errors
+
+Problem: Installation fails
+Solution:
+  - Check error message
+  - Verify all dependencies are installed (barcodes, mail, portal, utm)
+  - Check file permissions: chmod -R 755 custom_addons/events_clone
+
+Problem: Menu not showing after installation
+Solution:
+  - Refresh browser (Ctrl+F5)
+  - Clear browser cache
+  - Log out and log back in
+  - Verify user has correct permissions
+
+
+================================================================================
+QUICK VERIFICATION CHECKLIST
+================================================================================
+
+□ Custom addons path added to configuration
+□ Odoo server restarted
+□ Developer mode activated
+□ Apps list updated
+□ Events Clone module installed
+□ "Events Clone" menu visible in main menu
+□ Can create a test event
+
+
+================================================================================
+SUPPORT FILES
+================================================================================
+
+README.md - Detailed module documentation
+INSTALLATION_GUIDE.md - Comprehensive installation instructions
+This file - Quick activation guide
+
+
+================================================================================
+For detailed information, see README.md and INSTALLATION_GUIDE.md
+================================================================================
+

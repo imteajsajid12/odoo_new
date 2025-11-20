@@ -1,0 +1,72 @@
+<?xml version="1.0"?>
+<odoo>
+    <data>
+        <!-- Tag Form View -->
+        <record id="view_events_clone_tag_form" model="ir.ui.view">
+            <field name="name">events.clone.tag.form</field>
+            <field name="model">events.clone.tag</field>
+            <field name="arch" type="xml">
+                <form string="Event Tag">
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                            <field name="category_id"/>
+                            <field name="color"/>
+                            <field name="sequence"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Tag Tree View -->
+        <record id="view_events_clone_tag_tree" model="ir.ui.view">
+            <field name="name">events.clone.tag.tree</field>
+            <field name="model">events.clone.tag</field>
+            <field name="arch" type="xml">
+                <list string="Event Tags">
+                    <field name="sequence" widget="handle"/>
+                    <field name="name"/>
+                    <field name="category_id"/>
+                    <field name="color" widget="color_picker"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Tag Category Form View -->
+        <record id="view_events_clone_tag_category_form" model="ir.ui.view">
+            <field name="name">events.clone.tag.category.form</field>
+            <field name="model">events.clone.tag.category</field>
+            <field name="arch" type="xml">
+                <form string="Event Tag Category">
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                            <field name="sequence"/>
+                        </group>
+                        <field name="tag_ids">
+                            <list editable="bottom">
+                                <field name="sequence" widget="handle"/>
+                                <field name="name"/>
+                                <field name="color" widget="color_picker"/>
+                            </list>
+                        </field>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Tag Category Tree View -->
+        <record id="view_events_clone_tag_category_tree" model="ir.ui.view">
+            <field name="name">events.clone.tag.category.tree</field>
+            <field name="model">events.clone.tag.category</field>
+            <field name="arch" type="xml">
+                <list string="Event Tag Categories">
+                    <field name="sequence" widget="handle"/>
+                    <field name="name"/>
+                </list>
+            </field>
+        </record>
+    </data>
+</odoo>
+
