@@ -129,6 +129,19 @@ class EventEvent(models.Model):
         store=False, readonly=True, compute='_compute_seats')
     # Registration fields
     registration_ids = fields.One2many('event.registration', 'event_id', string='Attendees')
+    contact_ids = fields.Many2many(
+        'res.partner',
+        'event_contact_rel',
+        'event_id',
+        'partner_id',
+        string='Contacts',
+        help='Contacts related to this event.'
+    )
+    contact_count = fields.Integer(
+        string='Number of Contacts',
+        compute='_compute_contact_count',
+        store=False
+    )
     is_multi_slots = fields.Boolean("Is Multi Slots", copy=True,
         help="Allow multiple time slots. "
         "The communications, the maximum number of attendees and the maximum number of tickets registrations "
@@ -421,6 +434,12 @@ class EventEvent(models.Model):
         ))
         for event in self:
             event.event_slot_count = slot_count_per_event.get(event, 0)
+
+    @api.depends('contact_ids')
+    def _compute_contact_count(self):
+        """Compute the number of contacts associated with the event."""
+        for event in self:
+            event.contact_count = len(event.contact_ids)
 
     @api.depends('address_id')
     def _compute_address_search(self):
@@ -782,6 +801,98 @@ class EventEvent(models.Model):
                 'initial_date': min(max(datetime.now(), self.date_begin), self.date_end),
             },
         }
+
+    def action_view_contacts(self):
+        """Open the list of contacts associated with this event."""
+        self.ensure_one()
+        return {
+            'name': _('Event Contacts'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'res.partner',
+            'view_mode': 'list,form',
+            'domain': [('id', 'in', self.contact_ids.ids)],
+            'context': {
+                'default_event_id': self.id,
+                'search_default_customer': 1,
+            },
+        }
+
+    def action_send_email_to_contacts(self):
+        """Open email composer to send email to selected contacts."""
+        self.ensure_one()
+
+        # Check if event is saved
+        if not self.id:
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': _('Event Not Saved'),
+                    'message': _('Please save the event before sending emails to contacts.'),
+                    'type': 'warning',
+                    'sticky': False,
+                }
+            }
+
+        # Check if contacts exist
+        if not self.contact_ids:
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': _('No Contacts'),
+                    'message': _('Please add contacts to this event before sending emails.'),
+                    'type': 'warning',
+                    'sticky': False,
+                }
+            }
+
+        # Get the email composer form view
+        compose_form = self.env.ref('mail.email_compose_message_wizard_form', raise_if_not_found=False)
+
+        return {
+            'name': _('Send Email to Event Contacts'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'mail.compose.message',
+            'view_mode': 'form',
+            'view_id': compose_form.id if compose_form else False,
+            'target': 'new',
+            'context': {
+                'default_composition_mode': 'mass_mail',
+                'default_model': 'res.partner',
+                'default_res_ids': self.contact_ids.ids,
+                'default_partner_ids': self.contact_ids.ids,
+                'default_subject': _('Event: %s', self.name),
+                'default_body': self._get_default_email_body(),
+                'mail_post_autofollow': True,
+            },
+        }
+
+    def _get_default_email_body(self):
+        """Generate default email body for event contacts."""
+        self.ensure_one()
+        body = f"""
+        <p>Dear Contact,</p>
+        <p>We would like to inform you about our upcoming event:</p>
+        <p><strong>{escape(self.name)}</strong></p>
+        """
+
+        if self.date_begin:
+            date_str = format_datetime(self.env, self.date_begin, dt_format='medium')
+            body += f"<p><strong>Date:</strong> {date_str}</p>"
+
+        if self.address_id:
+            body += f"<p><strong>Location:</strong> {escape(self.address_id.name)}</p>"
+
+        if self.description:
+            body += f"<p><strong>Description:</strong></p>{self.description}"
+
+        body += """
+        <p>We look forward to seeing you there!</p>
+        <p>Best regards,</p>
+        """
+
+        return body
 
     def action_set_done(self):
         """

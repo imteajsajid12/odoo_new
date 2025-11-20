@@ -40,6 +40,14 @@
                                 help="Total Registrations for this Event">
                             <field name="seats_taken" widget="statinfo" string="Attendees"/>
                         </button>
+                        <button name="action_view_contacts"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-address-book"
+                                invisible="contact_count == 0"
+                                help="View Contacts associated with this Event">
+                            <field name="contact_count" widget="statinfo" string="Contacts"/>
+                        </button>
                     </div>
                     <field name="active" invisible="1"/>
                     <field name="company_id" invisible="1"/>
@@ -138,6 +146,35 @@
                                 </list>
                             </field>
                         </page>
+                        <page string="Contacts" name="contacts">
+                            <div class="oe_button_box mb-3">
+                                <button name="action_send_email_to_contacts"
+                                        type="object"
+                                        class="btn btn-primary"
+                                        icon="fa-envelope"
+                                        string="Send Email to All Contacts"
+                                        invisible="not id or not contact_ids"
+                                        help="Send an email to all contacts associated with this event"/>
+                            </div>
+                            <field name="contact_ids" context="{'tree_view_ref': 'base.view_partner_tree', 'form_view_ref': 'base.view_partner_form'}">
+                                <list string="Event Contacts" editable="bottom">
+                                    <field name="name"/>
+                                    <field name="email" widget="email"/>
+                                    <field name="phone" widget="phone"/>
+                                    <field name="function" optional="show"/>
+                                    <field name="company_name" optional="show"/>
+                                    <field name="city" optional="hide"/>
+                                    <field name="country_id" optional="hide"/>
+                                    <field name="category_id" widget="many2many_tags" options="{'color_field': 'color'}" optional="hide"/>
+                                    <button name="%(mail.action_email_compose_message_wizard)d"
+                                            type="action"
+                                            icon="fa-envelope"
+                                            class="btn-link"
+                                            title="Send Email"
+                                            context="{'default_model': 'res.partner', 'default_res_ids': [id], 'default_partner_ids': [id], 'default_composition_mode': 'comment'}"/>
+                                </list>
+                            </field>
+                        </page>
                         <page string="Notes &amp; Documents" name="event_notes">
                             <group>
                                 <group>
@@ -177,6 +214,7 @@
                 <field name="organizer_id" readonly="1" optional="hide"/>
                 <field name="user_id" readonly="1" widget="many2one_avatar_user"/>
                 <field name="company_id" groups="base.group_multi_company" readonly="1" optional="show"/>
+                <field name="contact_ids" widget="many2many_tags" optional="show" readonly="1"/>
                 <field name="date_begin" readonly="1"/>
                 <field name="date_end" readonly="1"/>
                 <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}" optional="hide"/>
@@ -298,6 +336,7 @@
                 <field name="event_type_id"/>
                 <field name="user_id"/>
                 <field name="address_search"/>
+                <field name="contact_ids" string="Contacts"/>
                 <field name="stage_id"/>
                 <field name="activity_user_id" string="Activities of"/>
                 <field name="activity_type_id" string="Activity type"/>
