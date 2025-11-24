@@ -91,7 +91,17 @@
                                     <span invisible="not is_multi_slots"> per slot</span>
                                 </span>
                             </div>
-                            <field name="trainer_id" options="{'no_create': True, 'no_open': True}"/>
+                            <label for="trainer_id" string="Trainer"/>
+                            <div class="d-flex gap-2">
+                                <field name="trainer_id" options="{'no_create': True, 'no_open': True}" class="flex-grow-1"/>
+                                <button name="action_send_email_to_trainer"
+                                        type="object"
+                                        class="btn btn-sm btn-secondary"
+                                        icon="fa-envelope"
+                                        title="Send Email to Trainer"
+                                        invisible="not trainer_id"
+                                        help="Send an email to the assigned trainer"/>
+                            </div>
                             <div class="alert alert-warning" role="alert" invisible="contacts_available">
                                 <strong>⚠️ Contacts Not Available</strong>
                                 <p>The Contacts app is not active. Please activate the Contacts app to select a trainer.</p>

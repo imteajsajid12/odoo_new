@@ -129,7 +129,7 @@ class EventEvent(models.Model):
         store=False, readonly=True, compute='_compute_seats')
     # Trainer
     trainer_id = fields.Many2one(
-        'res.partner', string='Trainer', tracking=True,
+        'res.partner', string='Trainer',
         domain="[('is_company', '=', False)]",
         help="Select a contact to assign as the trainer for this event")
     # Registration fields
@@ -990,6 +990,83 @@ class EventEvent(models.Model):
         """
         self.ensure_one()
         return tools.hmac(self.env(su=True), 'event-registration-ticket-report-access', (self.id, sorted(registration_ids)))
+
+    def action_send_email_to_trainer(self):
+        """Open email composer to send email to the trainer."""
+        self.ensure_one()
+
+        # Check if event is saved
+        if not self.id:
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': _('Event Not Saved'),
+                    'message': _('Please save the event before sending emails to the trainer.'),
+                    'type': 'warning',
+                    'sticky': False,
+                }
+            }
+
+        # Check if trainer exists
+        if not self.trainer_id:
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': _('No Trainer'),
+                    'message': _('Please assign a trainer to this event before sending emails.'),
+                    'type': 'warning',
+                    'sticky': False,
+                }
+            }
+
+        # Get the email composer form view
+        compose_form = self.env.ref('mail.email_compose_message_wizard_form', raise_if_not_found=False)
+
+        return {
+            'name': _('Send Email to Trainer'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'mail.compose.message',
+            'view_mode': 'form',
+            'view_id': compose_form.id if compose_form else False,
+            'target': 'new',
+            'context': {
+                'default_composition_mode': 'comment',
+                'default_model': 'res.partner',
+                'default_res_ids': [self.trainer_id.id],
+                'default_partner_ids': [self.trainer_id.id],
+                'default_subject': _('Event: %s - Trainer Information', self.name),
+                'default_body': self._get_default_email_body_for_trainer(),
+                'mail_post_autofollow': True,
+            },
+        }
+
+    def _get_default_email_body_for_trainer(self):
+        """Generate default email body for trainer."""
+        self.ensure_one()
+        body = f"""
+        <p>Dear {escape(self.trainer_id.name)},</p>
+        <p>You have been assigned as a trainer for the following event:</p>
+        <p><strong>{escape(self.name)}</strong></p>
+        """
+
+        if self.date_begin:
+            date_str = format_datetime(self.env, self.date_begin, dt_format='medium')
+            body += f"<p><strong>Date & Time:</strong> {date_str}</p>"
+
+        if self.address_id:
+            body += f"<p><strong>Location:</strong> {escape(self.address_id.name)}</p>"
+
+        if self.description:
+            body += f"<p><strong>Event Description:</strong></p>{self.description}"
+
+        body += """
+        <p>Please confirm your availability and let us know if you have any questions.</p>
+        <p>Best regards,</p>
+        """
+
+        return body
 
     @api.autovacuum
     def _gc_mark_events_done(self):
