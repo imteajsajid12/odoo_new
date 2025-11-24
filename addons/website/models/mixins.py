@@ -118,9 +118,28 @@ class WebsiteCover_PropertiesMixin(models.AbstractModel):
             "resize_class": "o_half_screen_height",
         }
 
+    def _get_cover_properties(self):
+        """
+        Safely get cover properties, handling cases where the field might be False or invalid.
+        Returns a dictionary of cover properties.
+        """
+        self.ensure_one()
+        if not self.cover_properties or self.cover_properties == 'false':
+            # If cover_properties is False or invalid, return default properties
+            return self._default_cover_properties()
+        try:
+            return json_safe.loads(self.cover_properties)
+        except (ValueError, TypeError):
+            # If JSON parsing fails, return default properties
+            logger.warning(
+                "Invalid cover_properties for %s (id=%s): %s. Using defaults.",
+                self._name, self.id, self.cover_properties
+            )
+            return self._default_cover_properties()
+
     def _get_background(self, height=None, width=None):
         self.ensure_one()
-        properties = json_safe.loads(self.cover_properties)
+        properties = self._get_cover_properties()
         img = properties.get('background-image', "none")
 
         if img.startswith('url(/web/image/'):

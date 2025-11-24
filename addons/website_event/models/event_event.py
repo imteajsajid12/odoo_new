@@ -501,7 +501,7 @@ class EventEvent(models.Model):
 
     def _default_website_meta(self):
         res = super()._default_website_meta()
-        event_cover_properties = json.loads(self.cover_properties)
+        event_cover_properties = self._get_cover_properties()
         # background-image might contain single quotes eg `url('/my/url')`
         res['default_opengraph']['og:image'] = res['default_twitter']['twitter:image'] = event_cover_properties.get('background-image', 'none')[4:-1].strip("'")
         res['default_opengraph']['og:title'] = res['default_twitter']['twitter:title'] = self.name

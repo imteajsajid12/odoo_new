@@ -2657,7 +2657,7 @@
 </template>
 
 <template id="record_cover">
-    <t t-set="_cp" t-value="_cp or json.loads(_record.cover_properties)"/>
+    <t t-set="_cp" t-value="_cp or _record._get_cover_properties()"/>
     <t t-set="_name" t-value="_name or _record._name"/>
     <t t-set="_id" t-value="_id or _record.id"/>
     <t t-set="_bg" t-value="_bg or _record._get_background(height=_resize_height, width=_resize_width)"/>
