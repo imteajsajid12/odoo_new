@@ -91,6 +91,11 @@
                                     <span invisible="not is_multi_slots"> per slot</span>
                                 </span>
                             </div>
+                            <field name="trainer_id" options="{'no_create': True, 'no_open': True}"/>
+                            <div class="alert alert-warning" role="alert" invisible="contacts_available">
+                                <strong>⚠️ Contacts Not Available</strong>
+                                <p>The Contacts app is not active. Please activate the Contacts app to select a trainer.</p>
+                            </div>
                         </group>
                     </group>
                     <notebook>
@@ -212,6 +217,7 @@
                 <field name="name"/>
                 <field name="address_id" readonly="1"/>
                 <field name="organizer_id" readonly="1" optional="hide"/>
+                <field name="trainer_id" optional="show"/>
                 <field name="user_id" readonly="1" widget="many2one_avatar_user"/>
                 <field name="company_id" groups="base.group_multi_company" readonly="1" optional="show"/>
                 <field name="contact_ids" widget="many2many_tags" optional="show" readonly="1"/>

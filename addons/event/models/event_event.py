@@ -127,6 +127,11 @@ class EventEvent(models.Model):
     seats_taken = fields.Integer(
         string='Number of Taken Seats',
         store=False, readonly=True, compute='_compute_seats')
+    # Trainer
+    trainer_id = fields.Many2one(
+        'res.partner', string='Trainer', tracking=True,
+        domain="[('is_company', '=', False)]",
+        help="Select a contact to assign as the trainer for this event")
     # Registration fields
     registration_ids = fields.One2many('event.registration', 'event_id', string='Attendees')
     contact_ids = fields.Many2many(
@@ -142,6 +147,8 @@ class EventEvent(models.Model):
         compute='_compute_contact_count',
         store=False
     )
+    contacts_available = fields.Boolean(
+        string='Contacts Available', compute='_compute_contacts_available')
     is_multi_slots = fields.Boolean("Is Multi Slots", copy=True,
         help="Allow multiple time slots. "
         "The communications, the maximum number of attendees and the maximum number of tickets registrations "
@@ -222,6 +229,16 @@ class EventEvent(models.Model):
         use_barcode = self.env['ir.config_parameter'].sudo().get_param('event.use_event_barcode') == 'True'
         for record in self:
             record.use_barcode = use_barcode
+
+    def _compute_contacts_available(self):
+        """Check if contacts (res.partner) are available in the system"""
+        for event in self:
+            try:
+                # Check if we can access res.partner model
+                partner_count = self.env['res.partner'].search_count([('is_company', '=', False)], limit=1)
+                event.contacts_available = True
+            except Exception:
+                event.contacts_available = False
 
     def _compute_event_share_url(self):
         """Get the URL to use to redirect to the event, overriden in website for fallback."""
