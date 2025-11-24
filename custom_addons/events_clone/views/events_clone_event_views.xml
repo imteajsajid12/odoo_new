@@ -26,6 +26,7 @@
                                     help="Send email to contacts based on selected tags"/>
                         </div>
                         <field name="active" invisible="1"/>
+                        <field name="contacts_available" invisible="1"/>
                         <widget name="web_ribbon" text="Archived" bg_color="text-bg-danger" invisible="active"/>
                         <field name="kanban_state" widget="state_selection" class="ms-auto float-end"/>
                         <div class="oe_title">
@@ -50,6 +51,11 @@
                                     <span invisible="not seats_limited">
                                         to <field name="seats_max" class="oe_inline"/> Attendees
                                     </span>
+                                </div>
+                                <field name="trainer_id" options="{'no_create': True, 'no_open': True}"/>
+                                <div class="alert alert-warning" role="alert" invisible="contacts_available">
+                                    <strong>⚠️ Contacts Not Available</strong>
+                                    <p>The Contacts app is not active. Please activate the Contacts app to select a trainer.</p>
                                 </div>
                             </group>
                         </group>
@@ -114,6 +120,7 @@
                     <field name="date_begin"/>
                     <field name="date_end"/>
                     <field name="organizer_id"/>
+                    <field name="trainer_id" optional="show"/>
                     <field name="user_id" widget="many2one_avatar_user"/>
                     <field name="address_id"/>
                     <field name="seats_used"/>

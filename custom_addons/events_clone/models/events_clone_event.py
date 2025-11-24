@@ -89,16 +89,24 @@ class EventsCloneEvent(models.Model):
         string='Available Seats', compute='_compute_seats', store=True)
     seats_used = fields.Integer(
         string='Number of Attendees', compute='_compute_seats', store=True)
-    
+
+    # Trainer
+    trainer_id = fields.Many2one(
+        'res.partner', string='Trainer', tracking=True,
+        domain="[('is_company', '=', False)]",
+        help="Select a contact to assign as the trainer for this event")
+
     # Relations
     event_ticket_ids = fields.One2many(
         'events.clone.ticket', 'event_id', string='Event Tickets', copy=True)
     registration_ids = fields.One2many(
         'events.clone.registration', 'event_id', string='Registrations')
-    
+
     # Computed fields
     registration_count = fields.Integer(
         string='Registration Count', compute='_compute_registration_count')
+    contacts_available = fields.Boolean(
+        string='Contacts Available', compute='_compute_contacts_available')
     
     @api.model
     def _tz_get(self):
@@ -108,7 +116,17 @@ class EventsCloneEvent(models.Model):
     def _compute_registration_count(self):
         for event in self:
             event.registration_count = len(event.registration_ids)
-    
+
+    def _compute_contacts_available(self):
+        """Check if contacts (res.partner) are available in the system"""
+        for event in self:
+            try:
+                # Check if we can access res.partner model
+                partner_count = self.env['res.partner'].search_count([('is_company', '=', False)], limit=1)
+                event.contacts_available = True
+            except Exception:
+                event.contacts_available = False
+
     @api.depends('seats_max', 'registration_ids.state')
     def _compute_seats(self):
         for event in self:
@@ -118,6 +136,17 @@ class EventsCloneEvent(models.Model):
                 event.seats_available = event.seats_max - event.seats_reserved
             else:
                 event.seats_available = 0
+
+    @api.onchange('trainer_id')
+    def _onchange_trainer_id(self):
+        """Validate that contacts are available when selecting a trainer"""
+        if self.trainer_id and not self.contacts_available:
+            return {
+                'warning': {
+                    'title': _('Contacts Not Available'),
+                    'message': _('The Contacts app is not active. Please activate the Contacts app to use the Trainer feature.'),
+                }
+            }
     
     @api.constrains('date_begin', 'date_end')
     def _check_dates(self):
