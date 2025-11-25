@@ -132,6 +132,26 @@ class EventEvent(models.Model):
         'res.partner', string='Trainer',
         domain="[('is_company', '=', False)]",
         help="Select a contact to assign as the trainer for this event")
+    trainer_tag_ids = fields.Many2many(
+        'res.partner.category',
+        'event_trainer_tag_rel',
+        'event_id',
+        'category_id',
+        string='Trainer Tags',
+        help='Select contact tags to filter trainers for email communication'
+    )
+    trainer_tag_contact_ids = fields.Many2many(
+        'res.partner',
+        string='Contacts with Trainer Tags',
+        compute='_compute_trainer_tag_contact_ids',
+        store=False,
+        help='All contacts that have any of the selected trainer tags'
+    )
+    trainer_tag_contact_count = fields.Integer(
+        string='Trainer Tag Contact Count',
+        compute='_compute_trainer_tag_contact_ids',
+        store=False
+    )
     # Registration fields
     registration_ids = fields.One2many('event.registration', 'event_id', string='Attendees')
     contact_ids = fields.Many2many(
@@ -239,6 +259,22 @@ class EventEvent(models.Model):
                 event.contacts_available = True
             except Exception:
                 event.contacts_available = False
+
+    @api.depends('trainer_tag_ids')
+    def _compute_trainer_tag_contact_ids(self):
+        """Compute all contacts that have any of the selected trainer tags"""
+        for event in self:
+            if event.trainer_tag_ids:
+                # Find all partners that have any of the selected tags
+                contacts = self.env['res.partner'].search([
+                    ('category_id', 'in', event.trainer_tag_ids.ids),
+                    ('is_company', '=', False)
+                ])
+                event.trainer_tag_contact_ids = contacts
+                event.trainer_tag_contact_count = len(contacts)
+            else:
+                event.trainer_tag_contact_ids = False
+                event.trainer_tag_contact_count = 0
 
     def _compute_event_share_url(self):
         """Get the URL to use to redirect to the event, overriden in website for fallback."""
@@ -1063,6 +1099,100 @@ class EventEvent(models.Model):
 
         body += """
         <p>Please confirm your availability and let us know if you have any questions.</p>
+        <p>Best regards,</p>
+        """
+
+        return body
+
+    def action_send_email_to_trainer_tags(self):
+        """Open email composer to send email to contacts with selected trainer tags."""
+        self.ensure_one()
+
+        # Check if event is saved
+        if not self.id:
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': _('Event Not Saved'),
+                    'message': _('Please save the event before sending emails to trainer tag contacts.'),
+                    'type': 'warning',
+                    'sticky': False,
+                }
+            }
+
+        # Check if trainer tags are selected
+        if not self.trainer_tag_ids:
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': _('No Trainer Tags Selected'),
+                    'message': _('Please select trainer tags before sending emails.'),
+                    'type': 'warning',
+                    'sticky': False,
+                }
+            }
+
+        # Check if there are contacts with the selected tags
+        if not self.trainer_tag_contact_ids:
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': _('No Contacts Found'),
+                    'message': _('No contacts found with the selected trainer tags.'),
+                    'type': 'warning',
+                    'sticky': False,
+                }
+            }
+
+        # Get the email composer form view
+        compose_form = self.env.ref('mail.email_compose_message_wizard_form', raise_if_not_found=False)
+
+        return {
+            'name': _('Send Email to Trainer Tag Contacts'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'mail.compose.message',
+            'view_mode': 'form',
+            'view_id': compose_form.id if compose_form else False,
+            'target': 'new',
+            'context': {
+                'default_composition_mode': 'mass_mail',
+                'default_model': 'res.partner',
+                'default_res_ids': self.trainer_tag_contact_ids.ids,
+                'default_partner_ids': self.trainer_tag_contact_ids.ids,
+                'default_subject': _('Event: %s - Trainer Information', self.name),
+                'default_body': self._get_default_email_body_for_trainer_tags(),
+                'mail_post_autofollow': True,
+            },
+        }
+
+    def _get_default_email_body_for_trainer_tags(self):
+        """Generate default email body for trainer tag contacts."""
+        self.ensure_one()
+        
+        tag_names = ', '.join(self.trainer_tag_ids.mapped('name'))
+        
+        body = f"""
+        <p>Dear Trainer,</p>
+        <p>We would like to inform you about an upcoming event that may be of interest to you:</p>
+        <p><strong>{escape(self.name)}</strong></p>
+        """
+
+        if self.date_begin:
+            date_str = format_datetime(self.env, self.date_begin, dt_format='medium')
+            body += f"<p><strong>Date & Time:</strong> {date_str}</p>"
+
+        if self.address_id:
+            body += f"<p><strong>Location:</strong> {escape(self.address_id.name)}</p>"
+
+        if self.description:
+            body += f"<p><strong>Event Description:</strong></p>{self.description}"
+
+        body += f"""
+        <p><em>You are receiving this email because you are tagged with: {escape(tag_names)}</em></p>
+        <p>Please let us know if you have any questions or would like to participate.</p>
         <p>Best regards,</p>
         """
 
