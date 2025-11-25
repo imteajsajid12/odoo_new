@@ -119,8 +119,11 @@ function Install-Dependencies {
     Write-Info "Installing Node.js..."
     choco install nodejs -y
     
-    Write-Info "Installing wkhtmltopdf..."
+    Write-Info "Installing PDF generation tools..."
     choco install wkhtmltopdf -y
+    
+    Write-Info "Installing GTK+ runtime (includes Cairo for barcode rendering)..."
+    choco install gtk-runtime -y
     
     Write-Success "System dependencies installed"
     
@@ -181,14 +184,23 @@ function Setup-PythonVenv {
     Write-Info "Upgrading pip..."
     python -m pip install --upgrade pip
     
-    Write-Info "Installing Python dependencies..."
+    Write-Info "Installing Python dependencies from requirements.txt..."
     pip install -r requirements.txt
     
     if ($?) {
-        Write-Success "Python dependencies installed"
+        Write-Success "Core Python dependencies installed"
     } else {
         Write-Error-Custom "Failed to install Python dependencies"
         exit 1
+    }
+    
+    Write-Info "Installing barcode rendering dependencies..."
+    try {
+        pip install pycairo rlPyCairo freetype-py
+        Write-Success "Barcode rendering dependencies installed"
+    } catch {
+        Write-Warning-Custom "Failed to install barcode dependencies (non-critical)"
+        Write-Info "Barcode rendering may not work without GTK+ runtime"
     }
 }
 

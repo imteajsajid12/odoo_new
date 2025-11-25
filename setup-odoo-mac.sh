@@ -105,8 +105,11 @@ install_dependencies() {
     print_info "Installing PostgreSQL..."
     brew install postgresql@14 || print_warning "PostgreSQL may already be installed"
     
-    print_info "Installing other dependencies..."
-    brew install node npm wkhtmltopdf libsass || print_warning "Some packages may already be installed"
+    print_info "Installing PDF and graphics dependencies..."
+    brew install wkhtmltopdf cairo pkg-config pixman freetype fontconfig || print_warning "Some packages may already be installed"
+    
+    print_info "Installing Node.js and build tools..."
+    brew install node npm libsass || print_warning "Some packages may already be installed"
     
     print_success "System dependencies installed"
 }
@@ -167,14 +170,23 @@ setup_python_venv() {
     print_info "Upgrading pip..."
     pip install --upgrade pip
     
-    print_info "Installing Python dependencies..."
+    print_info "Installing Python dependencies from requirements.txt..."
     pip install -r requirements.txt
     
     if [ $? -eq 0 ]; then
-        print_success "Python dependencies installed"
+        print_success "Core Python dependencies installed"
     else
         print_error "Failed to install Python dependencies"
         exit 1
+    fi
+    
+    print_info "Installing barcode rendering dependencies..."
+    pip install pycairo rlPyCairo freetype-py
+    
+    if [ $? -eq 0 ]; then
+        print_success "Barcode rendering dependencies installed"
+    else
+        print_warning "Failed to install barcode dependencies (non-critical)"
     fi
 }
 

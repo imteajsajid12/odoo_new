@@ -119,8 +119,14 @@ install_system_dependencies() {
         exit 1
     fi
     
-    print_info "Installing wkhtmltopdf..."
-    sudo apt-get install -y wkhtmltopdf || print_warning "wkhtmltopdf installation failed, will continue"
+    print_info "Installing PDF and graphics libraries..."
+    sudo apt-get install -y \
+        wkhtmltopdf \
+        libcairo2-dev \
+        pkg-config \
+        libpixman-1-dev \
+        libfreetype6-dev \
+        fontconfig || print_warning "Some PDF/graphics packages may have failed"
 }
 
 install_postgresql() {
@@ -189,14 +195,23 @@ setup_python_venv() {
     print_info "Upgrading pip..."
     pip install --upgrade pip wheel setuptools
     
-    print_info "Installing Python dependencies..."
+    print_info "Installing Python dependencies from requirements.txt..."
     pip install -r requirements.txt
     
     if [ $? -eq 0 ]; then
-        print_success "Python dependencies installed"
+        print_success "Core Python dependencies installed"
     else
         print_error "Failed to install Python dependencies"
         exit 1
+    fi
+    
+    print_info "Installing barcode rendering dependencies..."
+    pip install pycairo rlPyCairo freetype-py
+    
+    if [ $? -eq 0 ]; then
+        print_success "Barcode rendering dependencies installed"
+    else
+        print_warning "Failed to install barcode dependencies (non-critical)"
     fi
 }
 
