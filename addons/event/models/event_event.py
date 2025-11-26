@@ -1198,6 +1198,297 @@ class EventEvent(models.Model):
 
         return body
 
+    def _prepare_assignment_email_body(self, recipient_type='trainer'):
+        """Generate HTML email body for event assignment notifications.
+        
+        Args:
+            recipient_type: 'trainer' or 'responsible'
+        """
+        self.ensure_one()
+        
+        # Format dates and times
+        if self.date_begin:
+            self = self._set_tz_context()
+            date_begin_tz = fields.Datetime.context_timestamp(self, self.date_begin)
+            date_end_tz = fields.Datetime.context_timestamp(self, self.date_end)
+            
+            training_date = format_date(self.env, self.date_begin, date_format='medium')
+            start_time = format_time(self.env, self.date_begin, time_format='short')
+            end_time = format_time(self.env, self.date_end, time_format='short')
+        else:
+            training_date = _('Not set')
+            start_time = _('Not set')
+            end_time = _('Not set')
+        
+        # Get location
+        if self.address_id:
+            location = escape(self.address_id.name)
+            if self.address_id.city:
+                location += f", {escape(self.address_id.city)}"
+        elif self.event_url:
+            location = f'Online Event: <a href="{escape(self.event_url)}">{escape(self.event_url)}</a>'
+        else:
+            location = _('Online Event')
+        
+        # Get responsible person
+        responsible_person = escape(self.user_id.name) if self.user_id else _('Not assigned')
+        
+        # Get max attendees
+        if self.seats_limited and self.seats_max:
+            max_attendees = str(self.seats_max)
+            if self.is_multi_slots:
+                max_attendees += _(' per slot')
+        else:
+            max_attendees = _('Unlimited')
+        
+        # Build email body
+        body = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2c3e50;">You've been assigned to {escape(self.name)} training event</h2>
+            
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 10px 0; font-weight: bold; color: #34495e; width: 200px;">
+                            Training Event Title:
+                        </td>
+                        <td style="padding: 10px 0; color: #2c3e50;">
+                            {escape(self.name)}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px 0; font-weight: bold; color: #34495e;">
+                            Training Date:
+                        </td>
+                        <td style="padding: 10px 0; color: #2c3e50;">
+                            {training_date}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px 0; font-weight: bold; color: #34495e;">
+                            Event Start Time:
+                        </td>
+                        <td style="padding: 10px 0; color: #2c3e50;">
+                            {start_time}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px 0; font-weight: bold; color: #34495e;">
+                            Event End Time:
+                        </td>
+                        <td style="padding: 10px 0; color: #2c3e50;">
+                            {end_time}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px 0; font-weight: bold; color: #34495e;">
+                            Location:
+                        </td>
+                        <td style="padding: 10px 0; color: #2c3e50;">
+                            {location}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px 0; font-weight: bold; color: #34495e;">
+                            Responsible Person:
+                        </td>
+                        <td style="padding: 10px 0; color: #2c3e50;">
+                            {responsible_person}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px 0; font-weight: bold; color: #34495e;">
+                            Max Number of Attendees:
+                        </td>
+                        <td style="padding: 10px 0; color: #2c3e50;">
+                            {max_attendees}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        """
+        
+        if self.description and not is_html_empty(self.description):
+            body += f"""
+            <div style="margin: 20px 0;">
+                <h3 style="color: #34495e;">Event Description:</h3>
+                <div style="color: #2c3e50;">
+                    {self.description}
+                </div>
+            </div>
+            """
+        
+        body += """
+            <p style="color: #2c3e50; margin-top: 20px;">
+                We look forward to your participation in this training event.
+            </p>
+            <p style="color: #7f8c8d;">
+                Best regards,<br/>
+                Event Management Team
+            </p>
+        </div>
+        """
+        
+        return body
+
+    def _send_trainer_assignment_email(self):
+        """Send assignment email to all contacts with selected trainer tags."""
+        self.ensure_one()
+        
+        _logger.info(f"Event {self.name}: _send_trainer_assignment_email called")
+        _logger.info(f"Event {self.name}: trainer_tag_ids = {self.trainer_tag_ids}")
+        _logger.info(f"Event {self.name}: trainer_tag_contact_ids = {self.trainer_tag_contact_ids}")
+        
+        if not self.trainer_tag_ids or not self.trainer_tag_contact_ids:
+            _logger.info(f"Event {self.name}: No trainer tags or contacts, skipping email")
+            return
+        
+        # Get valid recipients (contacts with email addresses)
+        recipients = self.trainer_tag_contact_ids.filtered(lambda p: p.email)
+        
+        if not recipients:
+            _logger.warning(f"Event {self.name}: No valid email addresses found for trainer tag contacts")
+            return
+        
+        _logger.info(f"Event {self.name}: Found {len(recipients)} recipients with emails")
+        
+        try:
+            # Prepare email values
+            subject = _("You've been assigned to %s training event", self.name)
+            body = self._prepare_assignment_email_body(recipient_type='trainer')
+            
+            _logger.info(f"Event {self.name}: Email subject: {subject}")
+            
+            # Create mail for each recipient
+            mail_values = []
+            for recipient in recipients:
+                mail_values.append({
+                    'subject': subject,
+                    'body_html': body,
+                    'email_to': recipient.email,
+                    'email_from': self.env.user.email or self.env.company.email,
+                    'auto_delete': False,
+                    'model': 'event.event',
+                    'res_id': self.id,
+                })
+                _logger.info(f"Event {self.name}: Preparing email to {recipient.email}")
+            
+            # Create and send emails
+            if mail_values:
+                _logger.info(f"Event {self.name}: Creating {len(mail_values)} mail records")
+                mails = self.env['mail.mail'].sudo().create(mail_values)
+                _logger.info(f"Event {self.name}: Mail records created: {mails}")
+                mails.send()
+                _logger.info(f"Event {self.name}: Sent assignment emails to {len(recipients)} trainer tag contacts")
+                
+        except Exception as e:
+            _logger.error(f"Event {self.name}: Failed to send trainer assignment emails: {str(e)}", exc_info=True)
+
+    def _send_responsible_assignment_email(self):
+        """Send assignment email to the responsible user."""
+        self.ensure_one()
+        
+        _logger.info(f"Event {self.name}: _send_responsible_assignment_email called")
+        _logger.info(f"Event {self.name}: user_id = {self.user_id}")
+        
+        if not self.user_id or not self.user_id.partner_id or not self.user_id.partner_id.email:
+            _logger.info(f"Event {self.name}: No responsible user or email, skipping")
+            return
+        
+        _logger.info(f"Event {self.name}: Responsible user email: {self.user_id.partner_id.email}")
+        
+        try:
+            # Prepare email values
+            subject = _("You've been assigned to %s training event", self.name)
+            body = self._prepare_assignment_email_body(recipient_type='responsible')
+            
+            _logger.info(f"Event {self.name}: Email subject: {subject}")
+            
+            # Create and send email
+            mail_values = {
+                'subject': subject,
+                'body_html': body,
+                'email_to': self.user_id.partner_id.email,
+                'email_from': self.env.company.email or 'noreply@example.com',
+                'auto_delete': False,
+                'model': 'event.event',
+                'res_id': self.id,
+            }
+            
+            _logger.info(f"Event {self.name}: Creating mail record for responsible user")
+            mail = self.env['mail.mail'].sudo().create(mail_values)
+            _logger.info(f"Event {self.name}: Mail record created: {mail}")
+            mail.send()
+            _logger.info(f"Event {self.name}: Sent assignment email to responsible user {self.user_id.name}")
+            
+        except Exception as e:
+            _logger.error(f"Event {self.name}: Failed to send responsible user assignment email: {str(e)}", exc_info=True)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        """Override create to send assignment emails after event creation."""
+        _logger.info(f"EventEvent.create called with {len(vals_list)} events")
+        events = super(EventEvent, self).create(vals_list)
+        _logger.info(f"EventEvent.create: {len(events)} events created")
+        
+        # Send emails for each created event
+        for event in events:
+            _logger.info(f"Event {event.name}: Processing email notifications")
+            try:
+                # Send email to trainer tag contacts if tags are selected
+                if event.trainer_tag_ids:
+                    _logger.info(f"Event {event.name}: Has trainer tags, sending emails")
+                    event._send_trainer_assignment_email()
+                else:
+                    _logger.info(f"Event {event.name}: No trainer tags")
+                
+                # Send email to responsible user if assigned
+                if event.user_id:
+                    _logger.info(f"Event {event.name}: Has responsible user, sending email")
+                    event._send_responsible_assignment_email()
+                else:
+                    _logger.info(f"Event {event.name}: No responsible user")
+                    
+            except Exception as e:
+                _logger.error(f"Event {event.name}: Error sending assignment emails on create: {str(e)}", exc_info=True)
+        
+        return events
+
+    def write(self, vals):
+        """Override write to send assignment emails when trainer tags or responsible user changes."""
+        # Store old values before update
+        old_trainer_tags = {event.id: event.trainer_tag_ids.ids for event in self}
+        old_responsible_users = {event.id: event.user_id.id if event.user_id else False for event in self}
+        
+        # Perform the write operation
+        result = super(EventEvent, self).write(vals)
+        
+        # Check if trainer_tag_ids or user_id changed and send emails
+        for event in self:
+            try:
+                # Check if trainer tags changed
+                if 'trainer_tag_ids' in vals:
+                    new_trainer_tags = set(event.trainer_tag_ids.ids)
+                    old_tags = set(old_trainer_tags.get(event.id, []))
+                    
+                    # Send email if tags were added or changed
+                    if new_trainer_tags != old_tags and event.trainer_tag_ids:
+                        event._send_trainer_assignment_email()
+                
+                # Check if responsible user changed
+                if 'user_id' in vals:
+                    new_user_id = event.user_id.id if event.user_id else False
+                    old_user_id = old_responsible_users.get(event.id, False)
+                    
+                    # Send email if user changed and new user exists
+                    if new_user_id != old_user_id and event.user_id:
+                        event._send_responsible_assignment_email()
+                        
+            except Exception as e:
+                _logger.error(f"Event {event.name}: Error sending assignment emails on write: {str(e)}")
+        
+        return result
+
     @api.autovacuum
     def _gc_mark_events_done(self):
         """ move every ended events in the next 'ended stage' """
