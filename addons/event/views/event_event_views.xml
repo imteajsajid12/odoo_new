@@ -116,13 +116,13 @@
                                         <field name="trainer_tag_contact_count" class="fw-bold"/> contact(s) with selected tags
                                     </span>
                                 </div>
-                                <button name="action_send_email_to_trainer_tags"
+                                <!-- <button name="action_send_email_to_trainer_tags"
                                         type="object"
                                         class="btn btn-sm btn-secondary"
                                         icon="fa-envelope"
                                         title="Send Email to Contacts with Selected Tags"
                                         invisible="not trainer_tag_ids"
-                                        help="Send an email to all contacts that have the selected tags"/>
+                                        help="Send an email to all contacts that have the selected tags"/> -->
                             </div>
                             <div class="alert alert-warning" role="alert" invisible="contacts_available">
                                 <strong>⚠️ Contacts Not Available</strong>
