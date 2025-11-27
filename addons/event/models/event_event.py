@@ -244,6 +244,32 @@ class EventEvent(models.Model):
         string='General Questions', domain=[('once_per_order', '=', True)])
     specific_question_ids = fields.Many2many('event.question', 'event_event_event_question_rel',
         string='Specific Questions', domain=[('once_per_order', '=', False)])
+    # Notification tracking fields
+    is_reminder_sent = fields.Boolean(
+        string='Reminder Email Sent',
+        default=False,
+        copy=False,
+        help='Indicates if the one-week reminder email has been sent'
+    )
+    trainer_notified = fields.Boolean(
+        string='Trainer Notified',
+        default=False,
+        copy=False,
+        help='Indicates if trainers have been notified about this event'
+    )
+    responsible_notified = fields.Boolean(
+        string='Responsible Notified',
+        default=False,
+        copy=False,
+        help='Indicates if the responsible user has been notified about this event'
+    )
+    reminder_cron_id = fields.Many2one(
+        'ir.cron',
+        string='Reminder Scheduled Action',
+        ondelete='cascade',
+        copy=False,
+        help='Scheduled action for sending one-week reminder email'
+    )
 
     def _compute_use_barcode(self):
         use_barcode = self.env['ir.config_parameter'].sudo().get_param('event.use_event_barcode') == 'True'
@@ -1448,6 +1474,13 @@ class EventEvent(models.Model):
                     event._send_responsible_assignment_email()
                 else:
                     _logger.info(f"Event {event.name}: No responsible user")
+                
+                # Create scheduled action for one-week reminder
+                if event.date_begin:
+                    _logger.info(f"Event {event.name}: Creating reminder scheduled action")
+                    event._create_reminder_scheduled_action()
+                else:
+                    _logger.info(f"Event {event.name}: No date_begin, skipping scheduled action")
                     
             except Exception as e:
                 _logger.error(f"Event {event.name}: Error sending assignment emails on create: {str(e)}", exc_info=True)
@@ -1459,6 +1492,7 @@ class EventEvent(models.Model):
         # Store old values before update
         old_trainer_tags = {event.id: event.trainer_tag_ids.ids for event in self}
         old_responsible_users = {event.id: event.user_id.id if event.user_id else False for event in self}
+        old_date_begins = {event.id: event.date_begin for event in self}
         
         # Perform the write operation
         result = super(EventEvent, self).write(vals)
@@ -1483,11 +1517,530 @@ class EventEvent(models.Model):
                     # Send email if user changed and new user exists
                     if new_user_id != old_user_id and event.user_id:
                         event._send_responsible_assignment_email()
+                
+                # Check if date_begin changed - update scheduled action
+                if 'date_begin' in vals:
+                    old_date = old_date_begins.get(event.id)
+                    new_date = event.date_begin
+                    
+                    # If date changed, recreate the scheduled action
+                    if old_date != new_date:
+                        _logger.info(f"Event {event.name}: date_begin changed, updating scheduled action")
+                        event._update_reminder_scheduled_action()
                         
             except Exception as e:
                 _logger.error(f"Event {event.name}: Error sending assignment emails on write: {str(e)}")
         
         return result
+
+    def unlink(self):
+        """Override unlink to delete associated scheduled actions before deleting events."""
+        # Delete scheduled actions for all events being deleted
+        for event in self:
+            try:
+                if event.reminder_cron_id:
+                    _logger.info(f"Event {event.name}: Deleting reminder scheduled action before unlink")
+                    event.reminder_cron_id.unlink()
+            except Exception as e:
+                _logger.error(f"Event {event.name}: Error deleting scheduled action on unlink: {str(e)}")
+        
+        return super(EventEvent, self).unlink()
+
+    def _generate_attendee_report_html(self):
+        """Generate HTML table of all registered attendees with additional event information.
+        
+        Returns:
+            str: HTML formatted attendee report
+        """
+        self.ensure_one()
+        
+        # Get all confirmed and done registrations
+        registrations = self.registration_ids.filtered(lambda r: r.state in ['open', 'done'])
+        
+        if not registrations:
+            return """
+            <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                <p style="color: #6c757d; margin: 0;"><em>No attendees registered yet.</em></p>
+            </div>
+            """
+        
+        # Build HTML table
+        html = """
+        <div style="margin: 20px 0;">
+            <h3 style="color: #34495e; margin-bottom: 15px;">Attendee Report</h3>
+            <table style="width: 100%; border-collapse: collapse; background-color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <thead>
+                    <tr style="background-color: #3498db; color: white;">
+                        <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">#</th>
+                        <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Name</th>
+                        <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Email</th>
+                        <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Phone</th>
+                        <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Status</th>
+                        <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Registration Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
+        
+        for idx, reg in enumerate(registrations, 1):
+            # Alternate row colors
+            bg_color = '#f8f9fa' if idx % 2 == 0 else 'white'
+            
+            # Status badge color
+            status_color = '#28a745' if reg.state == 'done' else '#17a2b8'
+            status_text = 'Attended' if reg.state == 'done' else 'Confirmed'
+            
+            html += f"""
+                <tr style="background-color: {bg_color};">
+                    <td style="padding: 10px; border: 1px solid #ddd;">{idx}</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>{escape(reg.name or 'N/A')}</strong></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">{escape(reg.email or 'N/A')}</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">{escape(reg.phone or 'N/A')}</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">
+                        <span style="background-color: {status_color}; color: white; padding: 4px 8px; border-radius: 3px; font-size: 12px;">
+                            {status_text}
+                        </span>
+                    </td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">
+                        {format_datetime(self.env, reg.create_date, dt_format='short') if reg.create_date else 'N/A'}
+                    </td>
+                </tr>
+            """
+        
+        html += """
+                </tbody>
+            </table>
+        </div>
+        """
+        
+        # Add additional event information section
+        html += """
+        <div style="margin: 20px 0; background-color: #e8f4f8; padding: 15px; border-left: 4px solid #3498db; border-radius: 3px;">
+            <h4 style="color: #2c3e50; margin-top: 0;">Additional Event Information</h4>
+        """
+        
+        # Add event-specific details
+        if self.note and not is_html_empty(self.note):
+            html += f"""
+            <div style="margin: 10px 0;">
+                <strong style="color: #34495e;">Internal Notes:</strong>
+                <div style="margin-top: 5px; color: #2c3e50;">
+                    {self.note}
+                </div>
+            </div>
+            """
+        
+        # Add ticket information if available
+        if self.event_ticket_ids:
+            html += """
+            <div style="margin: 10px 0;">
+                <strong style="color: #34495e;">Ticket Types:</strong>
+                <ul style="margin: 5px 0; padding-left: 20px;">
+            """
+            for ticket in self.event_ticket_ids:
+                ticket_registrations = registrations.filtered(lambda r: r.event_ticket_id == ticket)
+                html += f"""
+                <li style="color: #2c3e50; margin: 5px 0;">
+                    {escape(ticket.name)}: {len(ticket_registrations)} registered
+                    {f' / {ticket.seats_max} max' if ticket.seats_max else ''}
+                </li>
+                """
+            html += """
+                </ul>
+            </div>
+            """
+        
+        # Add organizer contact info
+        if self.organizer_id:
+            html += f"""
+            <div style="margin: 10px 0;">
+                <strong style="color: #34495e;">Organizer Contact:</strong>
+                <div style="margin-top: 5px; color: #2c3e50;">
+                    {escape(self.organizer_id.name)}
+                    {f' - {escape(self.organizer_id.email)}' if self.organizer_id.email else ''}
+                    {f' - {escape(self.organizer_id.phone)}' if self.organizer_id.phone else ''}
+                </div>
+            </div>
+            """
+        
+        html += """
+        </div>
+        """
+        
+        return html
+
+    def _prepare_one_week_reminder_email_body(self, recipient_type='trainer'):
+        """Generate HTML email body for one-week reminder notifications.
+        
+        Args:
+            recipient_type: 'trainer' or 'responsible'
+            
+        Returns:
+            str: HTML formatted email body
+        """
+        self.ensure_one()
+        
+        # Format dates and times
+        if self.date_begin:
+            self = self._set_tz_context()
+            date_begin_tz = fields.Datetime.context_timestamp(self, self.date_begin)
+            date_end_tz = fields.Datetime.context_timestamp(self, self.date_end)
+            
+            training_date = format_date(self.env, self.date_begin, date_format='medium')
+            start_time = format_time(self.env, self.date_begin, time_format='short')
+            end_time = format_time(self.env, self.date_end, time_format='short')
+        else:
+            training_date = _('Not set')
+            start_time = _('Not set')
+            end_time = _('Not set')
+        
+        # Get location
+        if self.address_id:
+            location = escape(self.address_id.name)
+            if self.address_id.city:
+                location += f", {escape(self.address_id.city)}"
+        elif self.event_url:
+            location = f'Online Event: <a href="{escape(self.event_url)}">{escape(self.event_url)}</a>'
+        else:
+            location = _('Online Event')
+        
+        # Get responsible person
+        responsible_person = escape(self.user_id.name) if self.user_id else _('Not assigned')
+        
+        # Get number of booked attendees
+        booked_attendees = self.seats_used
+        
+        # Build email body
+        body = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background-color: #ff9800; color: white; padding: 20px; border-radius: 5px 5px 0 0;">
+                <h2 style="margin: 0;">⏰ One Week to Go!</h2>
+            </div>
+            
+            <div style="background-color: #fff3cd; padding: 15px; border-left: 4px solid #ff9800; margin-bottom: 20px;">
+                <p style="margin: 0; color: #856404;">
+                    <strong>Reminder:</strong> The event <strong>{escape(self.name)}</strong> is happening in one week!
+                </p>
+            </div>
+            
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                <h3 style="color: #2c3e50; margin-top: 0;">Event Details</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 10px 0; font-weight: bold; color: #34495e; width: 200px;">
+                            Training Event Title:
+                        </td>
+                        <td style="padding: 10px 0; color: #2c3e50;">
+                            {escape(self.name)}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px 0; font-weight: bold; color: #34495e;">
+                            Training Date:
+                        </td>
+                        <td style="padding: 10px 0; color: #2c3e50;">
+                            {training_date}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px 0; font-weight: bold; color: #34495e;">
+                            Event Start Time:
+                        </td>
+                        <td style="padding: 10px 0; color: #2c3e50;">
+                            {start_time}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px 0; font-weight: bold; color: #34495e;">
+                            Event End Time:
+                        </td>
+                        <td style="padding: 10px 0; color: #2c3e50;">
+                            {end_time}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px 0; font-weight: bold; color: #34495e;">
+                            Location:
+                        </td>
+                        <td style="padding: 10px 0; color: #2c3e50;">
+                            {location}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px 0; font-weight: bold; color: #34495e;">
+                            Responsible Person:
+                        </td>
+                        <td style="padding: 10px 0; color: #2c3e50;">
+                            {responsible_person}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px 0; font-weight: bold; color: #34495e;">
+                            Number of Booked Attendees:
+                        </td>
+                        <td style="padding: 10px 0; color: #2c3e50;">
+                            <strong style="color: #28a745; font-size: 18px;">{booked_attendees}</strong>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        """
+        
+        # Add attendee report
+        body += self._generate_attendee_report_html()
+        
+        if self.description and not is_html_empty(self.description):
+            body += f"""
+            <div style="margin: 20px 0;">
+                <h3 style="color: #34495e;">Event Description:</h3>
+                <div style="color: #2c3e50; background-color: #f8f9fa; padding: 15px; border-radius: 5px;">
+                    {self.description}
+                </div>
+            </div>
+            """
+        
+        body += """
+            <div style="background-color: #d4edda; padding: 15px; border-left: 4px solid #28a745; border-radius: 3px; margin: 20px 0;">
+                <p style="margin: 0; color: #155724;">
+                    <strong>Action Required:</strong> Please review the attendee list and ensure all preparations are complete for the upcoming event.
+                </p>
+            </div>
+            
+            <p style="color: #2c3e50; margin-top: 20px;">
+                We look forward to a successful event!
+            </p>
+            <p style="color: #7f8c8d;">
+                Best regards,<br/>
+                Event Management Team
+            </p>
+        </div>
+        """
+        
+        return body
+
+    def _send_one_week_reminder_emails(self):
+        """Send one-week reminder emails to trainers and responsible user."""
+        self.ensure_one()
+        
+        _logger.info(f"Event {self.name}: Sending one-week reminder emails")
+        
+        # Send to trainer tag contacts
+        if self.trainer_tag_ids and self.trainer_tag_contact_ids:
+            recipients = self.trainer_tag_contact_ids.filtered(lambda p: p.email)
+            
+            if recipients:
+                try:
+                    subject = _("Reminder: %s - One Week to Go!", self.name)
+                    body = self._prepare_one_week_reminder_email_body(recipient_type='trainer')
+                    
+                    mail_values = []
+                    for recipient in recipients:
+                        mail_values.append({
+                            'subject': subject,
+                            'body_html': body,
+                            'email_to': recipient.email,
+                            'email_from': self.env.user.email or self.env.company.email,
+                            'auto_delete': False,
+                            'model': 'event.event',
+                            'res_id': self.id,
+                        })
+                    
+                    if mail_values:
+                        mails = self.env['mail.mail'].sudo().create(mail_values)
+                        mails.send()
+                        _logger.info(f"Event {self.name}: Sent one-week reminder to {len(recipients)} trainers")
+                        
+                except Exception as e:
+                    _logger.error(f"Event {self.name}: Failed to send trainer reminder emails: {str(e)}", exc_info=True)
+        
+        # Send to responsible user
+        if self.user_id and self.user_id.partner_id and self.user_id.partner_id.email:
+            try:
+                subject = _("Reminder: %s - One Week to Go!", self.name)
+                body = self._prepare_one_week_reminder_email_body(recipient_type='responsible')
+                
+                mail_values = {
+                    'subject': subject,
+                    'body_html': body,
+                    'email_to': self.user_id.partner_id.email,
+                    'email_from': self.env.company.email or 'noreply@example.com',
+                    'auto_delete': False,
+                    'model': 'event.event',
+                    'res_id': self.id,
+                }
+                
+                mail = self.env['mail.mail'].sudo().create(mail_values)
+                mail.send()
+                _logger.info(f"Event {self.name}: Sent one-week reminder to responsible user")
+                
+            except Exception as e:
+                _logger.error(f"Event {self.name}: Failed to send responsible user reminder email: {str(e)}", exc_info=True)
+        
+        # Mark reminder as sent
+        self.write({'is_reminder_sent': True})
+        _logger.info(f"Event {self.name}: Marked is_reminder_sent = True")
+
+    def _create_reminder_scheduled_action(self):
+        """Create a dedicated scheduled action for this event's one-week reminder.
+        
+        The scheduled action will run exactly 7 days before the event starts.
+        """
+        self.ensure_one()
+        
+        if not self.date_begin:
+            _logger.warning(f"Event {self.name}: Cannot create reminder scheduled action without date_begin")
+            return
+        
+        # Calculate when to send reminder (7 days before event)
+        reminder_datetime = self.date_begin - timedelta(days=7)
+        
+        # Don't create if reminder time is in the past
+        if reminder_datetime < fields.Datetime.now():
+            _logger.info(f"Event {self.name}: Reminder time is in the past, skipping scheduled action creation")
+            return
+        
+        # Delete existing scheduled action if any
+        if self.reminder_cron_id:
+            _logger.info(f"Event {self.name}: Deleting existing reminder scheduled action")
+            self.reminder_cron_id.unlink()
+        
+        try:
+            # Create new scheduled action
+            cron_vals = {
+                'name': f'Event Reminder: {self.name}',
+                'model_id': self.env.ref('event.model_event_event').id,
+                'state': 'code',
+                'code': f'model._send_event_reminder({self.id})',
+                'interval_number': 1,
+                'interval_type': 'days',
+                'numbercall': 1,  # Run only once
+                'doall': False,
+                'active': True,
+                'nextcall': reminder_datetime,
+                'user_id': self.env.ref('base.user_root').id,
+            }
+            
+            cron = self.env['ir.cron'].sudo().create(cron_vals)
+            self.write({'reminder_cron_id': cron.id})
+            
+            _logger.info(f"Event {self.name}: Created reminder scheduled action (ID: {cron.id}) for {reminder_datetime}")
+            
+        except Exception as e:
+            _logger.error(f"Event {self.name}: Failed to create reminder scheduled action: {str(e)}", exc_info=True)
+
+    def _update_reminder_scheduled_action(self):
+        """Update the scheduled action when event date changes."""
+        self.ensure_one()
+        
+        # Simply recreate the scheduled action
+        self._create_reminder_scheduled_action()
+
+    def _delete_reminder_scheduled_action(self):
+        """Delete the scheduled action for this event."""
+        self.ensure_one()
+        
+        if self.reminder_cron_id:
+            try:
+                _logger.info(f"Event {self.name}: Deleting reminder scheduled action (ID: {self.reminder_cron_id.id})")
+                self.reminder_cron_id.unlink()
+                self.write({'reminder_cron_id': False})
+            except Exception as e:
+                _logger.error(f"Event {self.name}: Failed to delete reminder scheduled action: {str(e)}", exc_info=True)
+
+    @api.model
+    def _send_event_reminder(self, event_id):
+        """Static method called by scheduled action to send reminder for a specific event.
+        
+        Args:
+            event_id: ID of the event to send reminder for
+        """
+        _logger.info(f"_send_event_reminder called for event ID: {event_id}")
+        
+        try:
+            event = self.browse(event_id)
+            
+            if not event.exists():
+                _logger.warning(f"Event ID {event_id} not found, skipping reminder")
+                return
+            
+            if event.is_reminder_sent:
+                _logger.info(f"Event {event.name}: Reminder already sent, skipping")
+                return
+            
+            if event.kanban_state == 'cancel':
+                _logger.info(f"Event {event.name}: Event is cancelled, skipping reminder")
+                return
+            
+            # Send the reminder emails
+            _logger.info(f"Event {event.name}: Sending one-week reminder emails")
+            event._send_one_week_reminder_emails()
+            
+            # Deactivate the scheduled action after it runs
+            if event.reminder_cron_id:
+                event.reminder_cron_id.write({'active': False})
+                _logger.info(f"Event {event.name}: Deactivated reminder scheduled action")
+            
+        except Exception as e:
+            _logger.error(f"Failed to send reminder for event ID {event_id}: {str(e)}", exc_info=True)
+
+    @api.model
+    def send_weekly_event_reminders(self, test_mode=False):
+        """Cron job method to send one-week reminder emails for upcoming events.
+
+        This method is called by a scheduled action (cron job) to find all events
+        that are exactly 7 days away and haven't received reminder emails yet.
+
+        Args:
+            test_mode: If True, looks for events 10 minutes from now instead of 7 days.
+                      This is useful for testing the email functionality.
+        """
+        _logger.info("Starting weekly event reminder cron job")
+
+        # Check if test mode is enabled via system parameter
+        test_mode_param = self.env['ir.config_parameter'].sudo().get_param('event.reminder_test_mode', 'False')
+        test_mode = test_mode or (test_mode_param.lower() == 'true')
+
+        # Calculate the date range based on mode
+        now = fields.Datetime.now()
+
+        if test_mode:
+            # TEST MODE: Look for events 10 minutes from now (±5 minutes window)
+            target_time = now + timedelta(minutes=10)
+            time_window_start = target_time - timedelta(minutes=5)
+            time_window_end = target_time + timedelta(minutes=5)
+            _logger.info(f"TEST MODE: Looking for events between {time_window_start} and {time_window_end}")
+        else:
+            # PRODUCTION MODE: Look for events 7 days from now
+            seven_days_from_now = now + timedelta(days=7)
+            seven_days_date = seven_days_from_now.date()
+            time_window_start = datetime.combine(seven_days_date, datetime.min.time())
+            time_window_end = datetime.combine(seven_days_date, datetime.max.time())
+            _logger.info(f"PRODUCTION MODE: Looking for events between {time_window_start} and {time_window_end}")
+
+        # Find events that:
+        # 1. Start date is within the target window
+        # 2. Haven't received reminder email yet
+        # 3. Are not cancelled
+        events = self.search([
+            ('date_begin', '>=', time_window_start),
+            ('date_begin', '<=', time_window_end),
+            ('is_reminder_sent', '=', False),
+            ('kanban_state', '!=', 'cancel'),
+        ])
+
+        mode_str = "TEST MODE" if test_mode else "PRODUCTION MODE"
+        _logger.info(f"{mode_str}: Found {len(events)} events requiring reminders")
+
+        # Send reminder emails for each event
+        for event in events:
+            try:
+                _logger.info(f"Processing reminder for event: {event.name} (ID: {event.id})")
+                event._send_one_week_reminder_emails()
+            except Exception as e:
+                _logger.error(f"Failed to send reminder for event {event.name}: {str(e)}", exc_info=True)
+
+        _logger.info(f"Completed weekly event reminder cron job. Processed {len(events)} events")
+        return True
 
     @api.autovacuum
     def _gc_mark_events_done(self):

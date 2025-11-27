@@ -11,4 +11,18 @@
         <field name="interval_type">hours</field>
         <field name="nextcall" eval="(DateTime.now() + timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M:%S')" />
     </record>
+
+    <!-- Event Weekly Reminder Scheduler -->
+    <!-- NOTE: For TESTING, this is set to run every 5 minutes. -->
+    <!-- For PRODUCTION, change interval_number to 1 and interval_type to 'days' -->
+    <record model="ir.cron" forcecreate="True" id="event_weekly_reminder_cron">
+        <field name="name">Event: Weekly Reminder Scheduler (TEST MODE - 5 min)</field>
+        <field name="model_id" ref="model_event_event"/>
+        <field name="state">code</field>
+        <field name="code">model.send_weekly_event_reminders()</field>
+        <field name="user_id" ref="base.user_root"/>
+        <field name="interval_number">5</field>
+        <field name="interval_type">minutes</field>
+        <field name="nextcall" eval="(DateTime.now() + timedelta(minutes=5)).strftime('%Y-%m-%d %H:%M:%S')" />
+    </record>
 </data></odoo>
