@@ -1819,10 +1819,14 @@ class EventEvent(models.Model):
         return body
 
     def _send_one_week_reminder_emails(self):
-        """Send one-week reminder emails to trainers and responsible user."""
+        """Send reminder emails to trainers and responsible user.
+
+        FOR TESTING: This is triggered 1 minute after event creation.
+        FOR PRODUCTION: This should be triggered 1 week before the event.
+        """
         self.ensure_one()
-        
-        _logger.info(f"Event {self.name}: Sending one-week reminder emails")
+
+        _logger.info(f"Event {self.name}: Sending reminder emails (TEST MODE - 1 minute delay)")
         
         # Send to trainer tag contacts
         if self.trainer_tag_ids and self.trainer_tag_contact_ids:
@@ -1882,19 +1886,23 @@ class EventEvent(models.Model):
 
     def _create_reminder_scheduled_action(self):
         """Create a dedicated scheduled action for this event's one-week reminder.
-        
-        The scheduled action will run exactly 7 days before the event starts.
+
+        FOR TESTING: The scheduled action will run 1 MINUTE after event creation.
+        FOR PRODUCTION: Change timedelta(minutes=1) to timedelta(days=7)
         """
         self.ensure_one()
-        
+
         if not self.date_begin:
             _logger.warning(f"Event {self.name}: Cannot create reminder scheduled action without date_begin")
             return
-        
-        # Calculate when to send reminder (7 days before event)
-        reminder_datetime = self.date_begin - timedelta(days=7)
-        
-        # Don't create if reminder time is in the past
+
+        # FOR TESTING: Calculate when to send reminder (1 minute from now)
+        # FOR PRODUCTION: Use timedelta(days=7) instead
+        reminder_datetime = fields.Datetime.now() + timedelta(minutes=1)
+
+        _logger.info(f"Event {self.name}: TEST MODE - Reminder scheduled for 1 minute from now: {reminder_datetime}")
+
+        # Don't create if reminder time is in the past (shouldn't happen with future time)
         if reminder_datetime < fields.Datetime.now():
             _logger.info(f"Event {self.name}: Reminder time is in the past, skipping scheduled action creation")
             return
