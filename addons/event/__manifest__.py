@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Events Organization',
-    'version': '1.9',
+    'version': '1.10',
     'website': 'https://www.odoo.com/app/events',
     'category': 'Marketing/Events',
     'summary': 'Trainings, Conferences, Meetings, Exhibitions, Registrations',
@@ -16,6 +16,10 @@ Key Features
 ------------
 * Manage your Events and Registrations
 * Use emails to automatically confirm and send acknowledgments for any event registration
+* Automated email notifications to trainers and responsible users
+* Scheduled reminder emails before events
+* Trainer tag-based contact management
+* Attendee reporting in reminder emails
 """,
     'depends': ['barcodes', 'base_setup', 'mail', 'phone_validation', 'portal', 'utm'],
     'data': [
