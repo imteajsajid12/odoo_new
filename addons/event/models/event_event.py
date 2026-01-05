@@ -1921,8 +1921,6 @@ class EventEvent(models.Model):
                 'code': f'model._send_event_reminder({self.id})',
                 'interval_number': 1,
                 'interval_type': 'days',
-                'numbercall': 1,  # Run only once
-                'doall': False,
                 'active': True,
                 'nextcall': reminder_datetime,
                 'user_id': self.env.ref('base.user_root').id,
