@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 from odoo import _, api, Command, fields, models, tools
 from odoo.addons.base.models.res_partner import _tz_get
 from odoo.exceptions import ValidationError
+from odoo.orm.models import LockError
 from odoo.fields import Datetime, Domain
 from odoo.tools import format_date, format_datetime, format_time, frozendict
 from odoo.tools.mail import is_html_empty, html_to_inner_content
@@ -1983,8 +1984,13 @@ class EventEvent(models.Model):
             
             # Deactivate the scheduled action after it runs
             if event.reminder_cron_id:
-                event.reminder_cron_id.write({'active': False})
-                _logger.info(f"Event {event.name}: Deactivated reminder scheduled action")
+                try:
+                    event.reminder_cron_id.write({'active': False})
+                    _logger.info(f"Event {event.name}: Deactivated reminder scheduled action")
+                except LockError as lock_error:
+                    _logger.warning(f"Event {event.name}: Could not deactivate reminder scheduled action: {str(lock_error)}. This occurs when the cron is currently executing. The cron will be cleaned up by the system.")
+                except Exception as general_error:
+                    _logger.error(f"Event {event.name}: Unexpected error deactivating reminder scheduled action: {str(general_error)}", exc_info=True)
             
         except Exception as e:
             _logger.error(f"Failed to send reminder for event ID {event_id}: {str(e)}", exc_info=True)
