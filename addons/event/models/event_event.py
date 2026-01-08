@@ -1822,12 +1822,12 @@ class EventEvent(models.Model):
     def _send_one_week_reminder_emails(self):
         """Send reminder emails to trainers and responsible user.
 
-        FOR TESTING: This is triggered 1 minute after event creation.
+        FOR TESTING: This is triggered 2 minutes after event creation.
         FOR PRODUCTION: This should be triggered 1 week before the event.
         """
         self.ensure_one()
 
-        _logger.info(f"Event {self.name}: Sending reminder emails (TEST MODE - 1 minute delay)")
+        _logger.info(f"Event {self.name}: Sending reminder emails (TEST MODE - 2 minute delay)")
         
         # Send to trainer tag contacts
         if self.trainer_tag_ids and self.trainer_tag_contact_ids:
@@ -1897,11 +1897,11 @@ class EventEvent(models.Model):
             _logger.warning(f"Event {self.name}: Cannot create reminder scheduled action without date_begin")
             return
 
-        # FOR TESTING: Calculate when to send reminder (1 minute from now)
+        # FOR TESTING: Calculate when to send reminder (2 minutes from now)
         # FOR PRODUCTION: Use timedelta(days=7) instead
-        reminder_datetime = fields.Datetime.now() + timedelta(minutes=1)
+        reminder_datetime = fields.Datetime.now() + timedelta(minutes=2)
 
-        _logger.info(f"Event {self.name}: TEST MODE - Reminder scheduled for 1 minute from now: {reminder_datetime}")
+        _logger.info(f"Event {self.name}: TEST MODE - Reminder scheduled for 2 minutes from now: {reminder_datetime}")
 
         # Don't create if reminder time is in the past (shouldn't happen with future time)
         if reminder_datetime < fields.Datetime.now():
@@ -1914,7 +1914,7 @@ class EventEvent(models.Model):
             self.reminder_cron_id.unlink()
         
         try:
-            # Create new scheduled action
+            # Create new scheduled action (will be manually deactivated after execution)
             cron_vals = {
                 'name': f'Event Reminder: {self.name}',
                 'model_id': self.env.ref('event.model_event_event').id,
@@ -1926,11 +1926,17 @@ class EventEvent(models.Model):
                 'nextcall': reminder_datetime,
                 'user_id': self.env.ref('base.user_root').id,
             }
-            
+
+            _logger.info(f"Event {self.name}: Creating cron job for reminder...")
             cron = self.env['ir.cron'].sudo().create(cron_vals)
             self.write({'reminder_cron_id': cron.id})
-            
-            _logger.info(f"Event {self.name}: Created reminder scheduled action (ID: {cron.id}) for {reminder_datetime}")
+
+            _logger.info(f"Event {self.name}: ✅ CRON CREATED SUCCESSFULLY!")
+            _logger.info(f"Event {self.name}: ✅ Cron ID: {cron.id}")
+            _logger.info(f"Event {self.name}: ✅ Will execute at: {reminder_datetime}")
+            _logger.info(f"Event {self.name}: ✅ Current time: {fields.Datetime.now()}")
+            time_diff = (reminder_datetime - fields.Datetime.now()).total_seconds()
+            _logger.info(f"Event {self.name}: ✅ Time until execution: {int(time_diff)} seconds ({int(time_diff/60)} minutes)")
             
         except Exception as e:
             _logger.error(f"Event {self.name}: Failed to create reminder scheduled action: {str(e)}", exc_info=True)
@@ -1981,16 +1987,13 @@ class EventEvent(models.Model):
             # Send the reminder emails
             _logger.info(f"Event {event.name}: Sending one-week reminder emails")
             event._send_one_week_reminder_emails()
-            
-            # Deactivate the scheduled action after it runs
+
+            # Manually deactivate the cron job after execution (one-time execution)
             if event.reminder_cron_id:
-                try:
-                    event.reminder_cron_id.write({'active': False})
-                    _logger.info(f"Event {event.name}: Deactivated reminder scheduled action")
-                except LockError as lock_error:
-                    _logger.warning(f"Event {event.name}: Could not deactivate reminder scheduled action: {str(lock_error)}. This occurs when the cron is currently executing. The cron will be cleaned up by the system.")
-                except Exception as general_error:
-                    _logger.error(f"Event {event.name}: Unexpected error deactivating reminder scheduled action: {str(general_error)}", exc_info=True)
+                event.reminder_cron_id.sudo().write({'active': False})
+                _logger.info(f"Event {event.name}: Reminder sent successfully. Cron deactivated (ID: {event.reminder_cron_id.id}).")
+            else:
+                _logger.info(f"Event {event.name}: Reminder sent successfully.")
             
         except Exception as e:
             _logger.error(f"Failed to send reminder for event ID {event_id}: {str(e)}", exc_info=True)
@@ -2063,3 +2066,36 @@ class EventEvent(models.Model):
         ])
         if ended_events:
             ended_events.action_set_done()
+
+    @api.autovacuum
+    def _gc_cleanup_reminder_crons(self):
+        """Cleanup inactive reminder scheduled actions.
+
+        This is called by autovacuum to clean up one-time reminder crons
+        that have already been executed and deactivated.
+        We can safely delete these inactive crons to keep the database clean.
+        """
+        try:
+            # Find all inactive event reminder crons that have already executed
+            inactive_crons = self.env['ir.cron'].sudo().search([
+                ('name', 'ilike', 'Event Reminder:'),
+                ('active', '=', False),
+            ])
+            
+            if inactive_crons:
+                count = len(inactive_crons)
+                _logger.info(f"Autovacuum: Cleaning up {count} inactive event reminder cron(s)")
+                
+                # Also clear the reminder_cron_id field on events
+                events_with_inactive_crons = self.env['event.event'].search([
+                    ('reminder_cron_id', 'in', inactive_crons.ids)
+                ])
+                if events_with_inactive_crons:
+                    events_with_inactive_crons.write({'reminder_cron_id': False})
+                
+                # Delete the inactive crons
+                inactive_crons.unlink()
+                _logger.info(f"Autovacuum: Deleted {count} inactive event reminder cron(s)")
+        except Exception as e:
+            _logger.error(f"Autovacuum: Error cleaning up reminder crons: {str(e)}", exc_info=True)
+
